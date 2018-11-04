@@ -1,0 +1,43 @@
+# Note:
+# DNS response can have multiple records
+# Every record must fit in 256 bytes, if not it will be splitted into chunks of 256 bytes
+# a total DNS response must fit 65535 (UDP Datagram limit), 
+# therefore MAX_SIZE of any TXT record is limited to ~65,200 bytes
+#
+# empty configuration will result in empty but valid responses
+#
+# P.S. unicode domain names are not supported but still can be catched by the server.
+# for example мама-сервер-unicode.google.com will be catched but with SERVFAIL response
+#
+# Parsed values: hostname, type, record
+# TTL response always 0
+# 
+# Macro templates: {{template}}
+# file --> response with file content: {{file::/etc/passwd}}
+# shellexec --> response with system command output: {{shellexec::dig google.com +short}}
+# eval (python) --> response with custom python payload: {{eval::import random; res = '1.1.1.%d' % random.randint(1,255)}}
+# resolve --> alias of {{resolve::self}}
+# resolve::self --> behaves like dns forwarder (but only with one IP per domain)
+# resolve::google.com --> response with IP of specified domain
+# --- resolve macro currently supports A queries only, so if you specify TXT or another type it will resolve A type instead ---
+
+# examples:
+
+#passwd.example.com	TXT     {{file::/etc/passwd}}  # comments are ignored
+#shellexec		TXT     {{shellexec::whoami}}
+eval			TXT     {{eval::import random; res = '1.1.1.%d' % random.randint(1,255)}}
+#resolve1		A       {{resolve}}
+#resolve2		A       {{resolve::self}}      # same as above
+#resolve3		A       {{resolve::example.com}}
+#blah.com		A       5.5.5.5
+
+*			A       127.0.0.1
+test.nonexistenttld	A	1.1.1.1
+*.example.com		A	2.2.2.2
+c1.example.com		CNAME	c2.example.com
+c2.example.com		CNAME	c3.example.com
+c3.example.com		CNAME	google.example.com
+google.example.com	CNAME	google.com
+test.example.com	A	8.8.8.8			# this is a comment
+google.com		A	{{resolve}}
+notgoogle.com		A	{{resolve::google.com}}
