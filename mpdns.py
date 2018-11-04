@@ -13,6 +13,7 @@
 #   - {{resolve}}					 # Forward DNS request to local DNS
 #   - {{resolve::example.com}}				 # Resolve example.com instead of original record
 #   - {{echo}}						 # Response back with peer address
+#   - {{shellexec::echo %PEER% %QUERY%}}		 # Use of variables
 # - Supported query types: A, CNAME, TXT
 # - Update names.db records without restart/reload with 'nodns.py -e'
 #
@@ -94,6 +95,9 @@ def localDNSResolve(dhost):
    return random.choice(gethostbyname_ex(dhost)[-1])
 
 def checkMacro(q,query,peer):
+   query = str(query)
+   if query[-1] == '.': query = query[-1]
+   
    # check if we should do with {{data}}
    macro = re.match('{{([^#]*)}}.*$',q)
    if not macro:
@@ -104,12 +108,17 @@ def checkMacro(q,query,peer):
    payload = False
    if len(argList) > 1:
       payload = argList[1]
-      
+   
+   variables = {'%PEER%':peer[0],'%QUERY%':query}
+   for var in variables.keys():
+      if var in payload:
+         payload = payload.replace(var,variables[var])
+         
    if macroType == 'resolve':
       if not payload or payload == 'self':
          #resolve
          #resolve::self
-         return localDNSResolve(str(query))
+         return localDNSResolve(query)
       else:
          #resolve::google.com
          return localDNSResolve(payload)

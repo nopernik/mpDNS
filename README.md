@@ -11,6 +11,8 @@ Simple, configurable "**clone & run**" DNS Server with multiple useful features
   - `{{file::/etc/passwd}}` _-> Respond with localfile contents_
   - `{{resolve}}` _-> Forward DNS request to local system DNS_
   - `{{resolve::example.com}}` _-> Resolve example.com instead of original record_
+  - `{{echo}}` _-> Response back with peer address_
+  - `{{shellexec::echo %PEER% %QUERY%}}` _-> Use of variables_
 - Supported query types: `A`, `CNAME`, `TXT`
 - Update `names.db` records without restart/reload with `./mpdns.py -e`
 

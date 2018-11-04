@@ -42,3 +42,4 @@ test.example.com	A	8.8.8.8			# this is a comment
 google.com		A	{{resolve}}
 notgoogle.com		A	{{resolve::google.com}}
 echo.test		A	{{echo}}
+variable.test		A	{{shellexec::echo %PEER%}}
