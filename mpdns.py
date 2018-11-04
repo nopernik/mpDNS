@@ -12,6 +12,7 @@
 #   - {{file::/etc/passwd}}				 # Respond with localfile contents
 #   - {{resolve}}					 # Forward DNS request to local DNS
 #   - {{resolve::example.com}}				 # Resolve example.com instead of original record
+#   - {{echo}}						 # Response back with peer address
 # - Supported query types: A, CNAME, TXT
 # - Update names.db records without restart/reload with 'nodns.py -e'
 #
@@ -92,7 +93,7 @@ def parseDBFile():
 def localDNSResolve(dhost):
    return random.choice(gethostbyname_ex(dhost)[-1])
 
-def checkMacro(q,query):
+def checkMacro(q,query,peer):
    # check if we should do with {{data}}
    macro = re.match('{{([^#]*)}}.*$',q)
    if not macro:
@@ -112,6 +113,8 @@ def checkMacro(q,query):
       else:
          #resolve::google.com
          return localDNSResolve(payload)
+   elif macroType == 'echo':
+      return peer[0]
    elif macroType == 'file' and payload:
       if os.path.isfile(payload):
          with open(payload,'rb') as f:
@@ -213,7 +216,7 @@ class Dummy(Component):
            cnameAddress = [i[1] for i in tmpData if i[0] == 'CNAME']
            tmpRes = (dHost,tmpData)
            if cnameAddress:
-              newAddr = checkMacro(cnameAddress[0],dHost)
+              newAddr = checkMacro(cnameAddress[0],dHost,peer)
               reply.add_answer(RR(dHost, QTYPE.CNAME, rdata=CNAME(newAddr)))
               # Second: get desired QTYPE from desired host
               printOut(peer,QTYPE.CNAME,str(dHost),newAddr)
@@ -227,7 +230,7 @@ class Dummy(Component):
            # Add TXT Record
            printData = []
            for tmprecord in rData:
-              record = checkMacro(tmprecord,qname)
+              record = checkMacro(tmprecord,qname,peer)
               n = 255
               if len(record) > 20: 
                  printData += [ record[:15]+'...(%d)' % len(record) ]
@@ -248,7 +251,7 @@ class Dummy(Component):
            #elif db.has_key('*'): #python2 only
               resIP = [i[1] for i in dbTest('*') if i[0] == 'A']
            for tmpip in resIP:
-              ip = checkMacro(tmpip,qname)
+              ip = checkMacro(tmpip,qname,peer)
               # Add A Record
               reply.add_answer(RR(qname, QTYPE.A, rdata=A(ip)))
            if resIP: 
