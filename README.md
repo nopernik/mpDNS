@@ -30,7 +30,7 @@ Offensive and Defensive purposes:
 
 Installing
 --------------------
-`git clone https://github.com/nopernik/mpdns`
+`git clone https://github.com/nopernik/mpDNS`
 
 Limitations
 ------------------
