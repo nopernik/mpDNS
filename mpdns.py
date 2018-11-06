@@ -105,7 +105,7 @@ def checkMacro(q,query,peer):
    argList = macro.group(1).split('::')
    macroType = argList[0]
 
-   payload = False
+   payload = ''
    if len(argList) > 1:
       payload = argList[1]
    
