@@ -43,3 +43,4 @@ google.com		A	{{resolve}}
 notgoogle.com		A	{{resolve::google.com}}
 echo.test		A	{{echo}}
 variable.test		A	{{shellexec::echo %PEER%}}
+variable.query		TXT	{{shellexec::echo %QUERY%}}

@@ -96,7 +96,7 @@ def localDNSResolve(dhost):
 
 def checkMacro(q,query,peer):
    query = str(query)
-   if query[-1] == '.': query = query[-1]
+   if query[-1] == '.': query = query[:-1]
    
    # check if we should do with {{data}}
    macro = re.match('{{([^#]*)}}.*$',q)
