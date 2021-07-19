@@ -14,8 +14,7 @@
 #   - {{resolve::example.com}}				 # Resolve example.com instead of original record
 #   - {{echo}}						 # Response back with peer address
 #   - {{shellexec::echo %PEER% %QUERY%}}		 # Use of variables
-# - Supported query types: A, CNAME, TXT
-# - Update names.db records without restart/reload with 'nodns.py -e'
+# - Supported query types: A, CNAME, TXT and more
 #
 # Heavily based on https://github.com/circuits/circuits/blob/master/examples/dnsserver.py
 #
@@ -29,9 +28,13 @@
 from __future__ import print_function
 
 import sys, os
+import socket
 from socket import gethostbyname_ex
 import random
-from dnslib import QTYPE, RR, A, TXT, DNSHeader, DNSRecord, DNSQuestion, CNAME
+from dnslib import QTYPE, RR, A, AAAA, NS, TXT, DNSHeader, DNSRecord, DNSQuestion, CNAME, MX, RRSIG
+import base64
+import zlib
+import math
 
 from circuits import Component, Debugger, Event
 from circuits.net.events import write
@@ -43,13 +46,25 @@ from pprint import pprint
 
 __author__ = "@nopernik"
 __license__ = "GPL"
-__version__ = "1.0"
+__version__ = "1.1"
 
 rootPath = os.path.dirname(os.path.realpath(__file__))
 hostFile = rootPath + '/names.db'
 serverIP = '0.0.0.0'
+
+if '-h' in sys.argv[1:] or '--help' in sys.argv[1:]:
+   print('Usage:\n ./{} [--host 1.2.3.4]'.format(os.path.basename(__file__)))
+   exit(1)
+
+if '--host' in sys.argv[1:]:
+   serverIP = sys.argv[sys.argv.index('--host')+1]
+
 logFile = '/tmp/dns-server.log'
 PORT = 53
+
+with open('/tmp/dns-server.pid','wb') as pidfile:
+   pidfile.write(str(os.getpid()))
+
 
 if '-e' in sys.argv[1:]:
    print('names.db location: %s' % hostFile)
@@ -70,10 +85,8 @@ qTypeDict = {1:'A', 2:'NS', 5:'CNAME', 6:'SOA', 12:'PTR', 15:'MX',
                  50:'NSEC3', 51:'NSEC3PARAM', 52:'TLSA', 55:'HIP', 99:'SPF',
                  249:'TKEY', 250:'TSIG', 251:'IXFR', 252:'AXFR', 255:'ANY',
                  257:'CAA', 32768:'TA', 32769:'DLV'}
-                
-                
 
-def parseDBFile():
+def parseDBFile(hostFile=hostFile):
    with open(hostFile,'r') as f:
       for line in f.read().split('\n'):
          if re.match('^\s*[#;]',line): continue
@@ -90,7 +103,6 @@ def parseDBFile():
             if not (mtype,mdata) in db[mhost]:
                db[mhost] += [(mtype,mdata)]
 
-
 def localDNSResolve(dhost):
    return random.choice(gethostbyname_ex(dhost)[-1])
 
@@ -98,13 +110,13 @@ def checkMacro(q,query,peer):
    query = str(query)
    if query[-1] == '.': query = query[:-1]
    
-   # check if we should do with {{data}}
+   # check if we should do something with {{data}}
    macro = re.match('{{([^#]*)}}.*$',q)
    if not macro:
       return q
    argList = macro.group(1).split('::')
    macroType = argList[0]
-
+   # We've got macro %s" % macroType
    payload = ''
    if len(argList) > 1:
       payload = argList[1]
@@ -124,13 +136,30 @@ def checkMacro(q,query,peer):
          return localDNSResolve(payload)
    elif macroType == 'echo':
       return peer[0]
-   elif macroType == 'file' and payload:
+   elif payload and macroType in ['gzip','file']:
       if os.path.isfile(payload):
          with open(payload,'rb') as f:
-            res = f.read()
+            if macroType == 'gzip':
+               gzip_compress = zlib.compressobj(9, zlib.DEFLATED, zlib.MAX_WBITS | 16)
+               res = base64.b64encode(gzip_compress.compress(f.read()) + gzip_compress.flush())
+            else:
+               res = base64.b64encode(f.read())
       else:
          res = '127.0.0.1'
          print('File %r not found' % payload)
+   elif macroType == 'filelist' and payload:
+      # return file content 
+      # example:
+      #  line1 other data
+      #  line2 comment
+      #  results in ['line1','line2']
+      if os.path.isfile(payload):
+         with open(payload,'rb') as f:
+            res = [i.strip().split(' ')[0] for i in f.read().split('\n') if i and not i.strip().startswith('#')]
+      else:
+         res = '127.0.0.1'
+         print('File %r does not exists' % payload)
+
    elif macroType == 'eval' and payload:
       res = '127.0.0.1' # in case someone forget 'res =' in payload
       _locals = locals()
@@ -141,24 +170,21 @@ def checkMacro(q,query,peer):
    else:
       print("Unhandled macroType, defaulting to 127.0.0.1")
       res = '127.0.0.1'
-   return str(res)
+   return res
 
 def dbTest(q):
    global db
    db = {}
 
    parseDBFile()
-   
-   query = str(q)
+   query = str(q).lower()
    query = query[:-1] if query[-1] == '.' else query
    res = []
-
-
    if not query in db:
    #if not db.has_key(query):
       for qHost in db.keys():
          if qHost.startswith('*.') and query.endswith(qHost[2:]):
-            res = [i for i in db[qHost]]
+            res += [i for i in db[qHost]]
    else:
       res = [i for i in db[query]]
    return res
@@ -192,7 +218,6 @@ class query(Event):
 
     """query Event"""
 
-
 class DNS(Component):
 
     """DNS Protocol Handling"""
@@ -207,17 +232,14 @@ class DNS(Component):
            reply = DNSRecord(DNSHeader(id=data['id'],qr=1,aa=1,ra=1,rcode=2,qtype=data['qtype']),q=DNSQuestion(data['q']))
            self.fire(write(peer, reply.pack()))
 
-
 class Dummy(Component):
 
     def query(self, peer, request):
         id = request.header.id
         qname = request.q.qname
-
         queryType = request.q.qtype
         reply = DNSRecord( DNSHeader(id=id, qr=1, aa=1, ra=1), q=request.q )
 
-        
         def cnameRecursion(dHost):
            global tmpRes # used for overwriting previous recursion value
            tmpData = dbTest(dHost)
@@ -233,7 +255,7 @@ class Dummy(Component):
            return tmpRes
 
         qname,rData = cnameRecursion(qname)
-        
+
         if queryType == QTYPE.TXT: # TXT
            rData = [i[1] for i in rData if i[0] == 'TXT']
            # Add TXT Record
@@ -248,21 +270,40 @@ class Dummy(Component):
               if len(record) > n:
                  record = [record[i:i+n] for i in range(0, len(record), n)]
               reply.add_answer(RR(qname, QTYPE.TXT, rdata=TXT(record if isinstance(record,list) else [record,])))
-              
            printOut(peer,queryType,str(qname),printData)
 
+        elif queryType == QTYPE.MX:
+           rData = [i[1] for i in rData if i[0] == qTypeDict[queryType]]
+           resIP = ''
+           printData = []
+           if len(rData):
+              resIP = rData
+           elif '*' in db:
+              resIP = [i[1] for i in dbTest('*') if i[0] == 'MX']
+           for tmpip in resIP:
+              ip = checkMacro(tmpip,qname,peer)
+              reply.add_answer(RR(qname, QTYPE.MX, rdata=MX(ip)))
+           printOut(peer,queryType,str(qname),printData)
+           
         else:
            rData = [i[1] for i in rData if i[0] == qTypeDict[queryType]]
            resIP = ''
            if len(rData):
               resIP = rData
-           elif '*' in db:
-           #elif db.has_key('*'): #python2 only
-              resIP = [i[1] for i in dbTest('*') if i[0] == 'A']
+           elif '*' in db: # answer to ALL (*)
+              resIP = [i[1] for i in dbTest('*') if i[0] == qTypeDict[queryType]]
            for tmpip in resIP:
-              ip = checkMacro(tmpip,qname,peer)
-              # Add A Record
-              reply.add_answer(RR(qname, QTYPE.A, rdata=A(ip)))
+              tip = checkMacro(tmpip,qname,peer)
+              if not isinstance(tip,list):
+                 tip = [tip]
+              for ip in tip:
+                 # Add A Record
+                 if queryType == QTYPE.NS:
+                    reply.add_answer(RR(qname, QTYPE.NS, rdata=NS(ip)))
+                 elif queryType == QTYPE.AAAA:
+                    reply.add_answer(RR(qname, QTYPE.AAAA, rdata=AAAA(ip)))
+                 else:
+                    reply.add_answer(RR(qname, QTYPE.A, rdata=A(ip), ttl=30))
            if resIP: 
               printOut(peer,queryType,str(qname),', '.join(resIP))
            else:
@@ -279,7 +320,6 @@ class DNSServer(Component):
         self.transport = UDPServer(self.bind).register(self)
         self.protocol = DNS().register(self)
         self.dummy = Dummy().register(self)
-
     def started(self, manager):
         print("\nDNS Server Started!", file=sys.stdout)
 
@@ -289,7 +329,6 @@ class DNSServer(Component):
 print("Reading hosts from %r:\n" % hostFile)
 parseDBFile()
 print('Loaded:\n')
-#for key,val in db.iteritems(): #python2 only
 for key,val in db.items():
    for v in val:
       if len(v[1]) > 255:
@@ -301,5 +340,13 @@ for key,val in db.items():
       else:
          p = v[1]
       print('%s%s%r' % (key.ljust(25),v[0].ljust(8),p))
+for k in db:
+   print('\n\033[92m[+] {}:\033[0m'.format(k))
+   for v in db[k]:
+      print('{} -> {}'.format(v[0].rjust(8).ljust(8),v[1]))
 
-DNSServer((serverIP, PORT), verbose=True).run()
+
+try:
+   DNSServer((serverIP, PORT), verbose=True).run()
+except socket.error:
+   print('[-] Unable to bind on serverIP\nTry overriding bind host with --host 1.2.3.4\n')
