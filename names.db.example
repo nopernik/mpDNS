@@ -1,0 +1,82 @@
+# Note:
+# DNS response can have multiple records
+# Every record must fit in 256 bytes, if not it will be splitted into chunks of 256 bytes
+# a total DNS response must fit 65535 (UDP Datagram limit), 
+# therefore MAX_SIZE of any TXT record is limited to ~65,200 bytes
+#
+# empty configuration will result in empty but valid responses
+#
+# P.S. unicode domain names are not supported but still can be catched by the server.
+# for example мама-сервер-unicode.google.com will be catched but with SERVFAIL response
+#
+# Parsed values: hostname, type, record
+# TTL response always 0
+# 
+# Macro templates: {{template}}
+# file --> response with file content: {{file::/etc/passwd}}
+# shellexec --> response with system command output: {{shellexec::dig google.com +short}}
+# eval (python) --> response with custom python payload: {{eval::import random; res = '1.1.1.%d' % random.randint(1,255)}}
+# resolve --> alias of {{resolve::self}}
+# resolve::self --> behaves like dns forwarder (but only with one IP per domain)
+# resolve::google.com --> response with IP of specified domain
+# --- resolve macro currently supports A queries only, so if you specify TXT or another type it will resolve A type instead ---
+
+
+# -------------------------------------
+# Own nameserver configuration example
+# -------------------------------------
+# let's assume we own evilcorp.net domain:
+# 1. Configure registrar's name server to ns1.evilcorp.net and ns2.evilcorp.net (if necessary) and point it to your server's public ip 11.22.33.44
+
+evilcorp.net        NS  ns1.evilcorp.net
+evilcorp.net        NS  ns2.evilcorp.net
+
+ns1.evilcorp.net    A  11.22.33.44
+ns2.evilcorp.net    A  11.22.33.45      #if you have two servers
+
+# 2. Configure MX mail record (optional)
+mx.evilcorp.net     MX  11.22.33.45
+
+# 3. Configure subdomains:
+evilcorp.net        A       11.22.33.46
+
+# IPv6 is supported
+evilcorp.net        AAAA    2b00:1452:4109:8238::20ab
+
+www.evilcorp.net    CNAME   evilcorp.net
+ftp.evilcorp.net    A       11.22.33.47
+
+# Default answer to all other subdomains
+*.evilcorp.net	    A       127.0.0.1
+
+# -------------------------------------
+# Other examples:
+# Test these with: dig TYPE QUERY @your_dns_server_ip
+# Note: You can query whatever you want if you ask your DNS server directly. Not limited to TLD that you own.
+# -------------------------------------
+
+test.nonexistenttld	A	1.1.1.1
+*.example.com		A	2.2.2.2
+c1.example.com		CNAME	c2.example.com
+c2.example.com		CNAME	c3.example.com
+c3.example.com		CNAME	google.example.com
+google.example.com	CNAME	google.com
+test.example.com	A	    8.8.8.8
+google.com		    A	    {{resolve}}
+notgoogle.com		A	    {{resolve::google.com}}
+echo.test   		A	    {{echo}}
+variable.test		A	    {{shellexec::echo %PEER%}}
+*.variable.query	TXT	    {{shellexec::echo %QUERY%}}
+file-raw-txt	    TXT 	{{file::/etc/hosts}} # binary -> base64
+file-gzip-txt       TXT 	{{gzip::/etc/hosts}} # binary -> gzip -> base64
+file-raw-ipv6	    AAAA	{{file::/tmp/file}}  # binary -> base64 -> hex (allows us to transfer 16 bytes in one IPv6 record. Max records per query was not tested.)
+file-gzip-ipv6	    AAAA	{{gzip::/tmp/file}}  # binary -> gzip -> base64 -> hex
+shellexec		    TXT     {{shellexec::whoami}}
+eval			    TXT     {{eval::import random; res = '1.1.1.%d' % random.randint(1,255)}}
+resolve1		    A       {{resolve}}
+resolve2		    A       {{resolve::self}}      # same as above
+resolve3	    	A       {{resolve::example.com}}
+blah.com       		A       5.5.5.5
+
+
+# Have fun!

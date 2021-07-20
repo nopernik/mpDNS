@@ -1,31 +1,5 @@
 #!/usr/bin/env python3
 
-# mpDNS aka Multipurpose DNS
-#
-# Simple, configurable "clone & run" DNS Server with multiple useful features
-# - names.db -> holds all custom records (see for examples)
-# - Simple wildcards like *.example.com
-# - Support for unicode dns requests
-# - Custom actions aka macro:
-#   - {{shellexec::dig google.com +short}}		 # Execute shell command and respond with result
-#   - {{eval::res = '1.1.1.%d' % random.randint(0,256)}} # Evaluate your python code
-#   - {{file::/etc/passwd}}				 # Respond with localfile contents
-#   - {{resolve}}					 # Forward DNS request to local DNS
-#   - {{resolve::example.com}}				 # Resolve example.com instead of original record
-#   - {{echo}}						 # Response back with peer address
-#   - {{shellexec::echo %PEER% %QUERY%}}		 # Use of variables
-#   - %QUERY% variable is being shell escaped (shlex.quote(query))
-# - Supported query types: A, AAAA, CNAME, TXT and more
-#
-# Heavily based on https://github.com/circuits/circuits/blob/master/examples/dnsserver.py
-#
-# Usage: mpdns.py
-#  - Edit names.db with 'mpdns.py -e' no restart required
-#
-# Twitter: @nopernik
-# Blog: https://korznikov.com
-#
-
 from __future__ import print_function
 
 import sys, os
@@ -48,10 +22,18 @@ from pprint import pprint
 
 __author__ = "@nopernik"
 __license__ = "GPL"
-__version__ = "1.1"
+__version__ = "1.2"
 
 rootPath = os.path.dirname(os.path.realpath(__file__))
 hostFile = rootPath + '/names.db'
+
+sys.stderr.write('[+] Multipurpose DNS by @nopernik\n\n')
+sys.stderr.flush()
+
+if not os.path.exists(hostFile):
+    print("[-] names.db does not found.\nUse names.db.example as a template and copy it to 'names.db' file.")
+    exit(1)
+
 serverIP = '0.0.0.0'
 
 if '-h' in sys.argv[1:] or '--help' in sys.argv[1:]:

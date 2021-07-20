@@ -1,7 +1,7 @@
 mpDNS aka multi-purpose DNS Server
 --------------------
 Simple, configurable "**clone & run**" DNS Server with multiple useful features
-- Should work on Python 2 and 3
+- Python 3
 - names.db -> holds all custom records (see examples)
 - Simple wildcards like *.example.com
 - Catch unicode dns requests
@@ -13,13 +13,13 @@ Simple, configurable "**clone & run**" DNS Server with multiple useful features
   - `{{resolve::example.com}}` _-> Resolve example.com instead of original record_
   - `{{echo}}` _-> Response back with peer address_
   - `{{shellexec::echo %PEER% %QUERY%}}` _-> Use of variables_
-- Supported query types: `A`, `CNAME`, `TXT`
-- Update `names.db` records without restart/reload with `./mpdns.py -e`
+- See names.db.example for more
 
 Heavily based on <https://github.com/circuits/circuits/blob/master/examples/dnsserver.py>
 
 Usage: `./mpdns.py`
- - Edit **names.db** with `./mpdns.py -e` no restart required
+ - Create **names.db**. See names.db.example
+ - Edit DNS records in **names.db** with `./mpdns.py -e` no restart required
 
 Offensive and Defensive purposes:
 -----------
