@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # mpDNS aka Multipurpose DNS
 #
@@ -14,7 +14,8 @@
 #   - {{resolve::example.com}}				 # Resolve example.com instead of original record
 #   - {{echo}}						 # Response back with peer address
 #   - {{shellexec::echo %PEER% %QUERY%}}		 # Use of variables
-# - Supported query types: A, CNAME, TXT and more
+#   - %QUERY% variable is being shell escaped (shlex.quote(query))
+# - Supported query types: A, AAAA, CNAME, TXT and more
 #
 # Heavily based on https://github.com/circuits/circuits/blob/master/examples/dnsserver.py
 #
@@ -35,6 +36,7 @@ from dnslib import QTYPE, RR, A, AAAA, NS, TXT, DNSHeader, DNSRecord, DNSQuestio
 import base64
 import zlib
 import math
+import shlex
 
 from circuits import Component, Debugger, Event
 from circuits.net.events import write
@@ -63,7 +65,7 @@ logFile = '/tmp/dns-server.log'
 PORT = 53
 
 with open('/tmp/dns-server.pid','wb') as pidfile:
-   pidfile.write(str(os.getpid()))
+   pidfile.write(str(os.getpid()).encode())
 
 
 if '-e' in sys.argv[1:]:
@@ -106,6 +108,13 @@ def parseDBFile(hostFile=hostFile):
 def localDNSResolve(dhost):
    return random.choice(gethostbyname_ex(dhost)[-1])
 
+def longToIP(ipLong):
+    ipString = []
+    for i in range(8):
+        ipString += [('%04x'%(ipLong & 0xffff))]
+        ipLong = ipLong >> 16
+    return ':'.join(ipString[::-1])
+
 def checkMacro(q,query,peer):
    query = str(query)
    if query[-1] == '.': query = query[:-1]
@@ -121,7 +130,7 @@ def checkMacro(q,query,peer):
    if len(argList) > 1:
       payload = argList[1]
    
-   variables = {'%PEER%':peer[0],'%QUERY%':query}
+   variables = {'%PEER%':peer[0],'%QUERY%':shlex.quote(query)}
    for var in variables.keys():
       if var in payload:
          payload = payload.replace(var,variables[var])
@@ -301,7 +310,13 @@ class Dummy(Component):
                  if queryType == QTYPE.NS:
                     reply.add_answer(RR(qname, QTYPE.NS, rdata=NS(ip)))
                  elif queryType == QTYPE.AAAA:
-                    reply.add_answer(RR(qname, QTYPE.AAAA, rdata=AAAA(ip)))
+                    n = 16
+                    if len(ip) > n:
+                        record = [longToIP(int((ip[i:i+n]).hex(),16)) for i in range(0, len(ip), n)]
+                        for i in record:
+                            reply.add_answer(RR(qname, QTYPE.AAAA, rdata=AAAA(i)))
+                    else:
+                        reply.add_answer(RR(qname, QTYPE.AAAA, rdata=AAAA(ip)))
                  else:
                     reply.add_answer(RR(qname, QTYPE.A, rdata=A(ip), ttl=30))
            if resIP: 
