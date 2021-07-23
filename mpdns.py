@@ -12,6 +12,7 @@ import zlib
 import math
 import shlex
 from netaddr import IPAddress as IP
+import traceback
 
 from circuits import Component, Debugger, Event
 from circuits.net.events import write
@@ -193,21 +194,21 @@ def dbTest(q):
     return res
 
 def customParse(q):
-    #FIXME #TODO
-    id = int(q[:2].encode('hex'),16)
-    q = bytearray(q[12:])
+    qid = int(q[:2].hex(),16)
+    print(qid)
+    q = q[12:]
     l = len(q)
     qType = 0
-    res = ''
+    res = b''
     while 1:
         i = q[0]
         if not i:
             break
         q = q[1:]
-        res += q[:i] + '.'
+        res += q[:i] + b'.'
         q = q[i:]
     qType = ( q[1] << 8 ) + q[2]
-    return {'id':id,'q':str(res),'qtype':qType}
+    return {'id':qid,'q':res,'qtype':qType}
    
 def printOut(peer,qType,query,response):
     peerLen = len("%s:%d"%(peer[0],peer[1]))
@@ -230,10 +231,11 @@ class DNS(Component):
         try:
             self.fire(query(peer, DNSRecord.parse(data)))
         except:
-            # Handle non latin characters, and respond with SERVFAIL
+            # Handle other possible exceptions and respond with SERVFAIL
             data = customParse(data)
             printOut(peer,data['qtype'],data['q'],'SERVFAIL')
-            reply = DNSRecord(DNSHeader(id=data['id'],qr=1,aa=1,ra=1,rcode=2,qtype=data['qtype']),q=DNSQuestion(data['q']))
+
+            reply = DNSRecord(DNSHeader(id=data['id'],qr=1,aa=1,ra=1,rcode=2,qtype=data['qtype']),q=DNSQuestion(data['q'],qtype=data['qtype']))
             self.fire(write(peer, reply.pack()))
 
 class Dummy(Component):
@@ -305,13 +307,20 @@ class Dummy(Component):
                     if queryType == QTYPE.NS:
                         reply.add_answer(RR(qname, QTYPE.NS, rdata=NS(ip)))
                     elif queryType == QTYPE.AAAA:
-                        n = 16
-                        if len(ip) > n:
+                        if isValidIP(ip):
+                            reply.add_answer(RR(qname, QTYPE.AAAA, rdata=AAAA(ip)))
+                        else:
+                            # Handle invalid IPv6, encode it in hex and send in form of IPv6
+                            # Converting 'simpletext' -> ::7369:6d70:6c65:7465:7874
+                            # To be used in 'file' macro
+                            print("Invalid IPv6 provided: {!r}... Answering as HEX -> IPv6".format(ip[:20]))
+                            n = 16
+                            # if len(ip) > n:
+                            if isinstance(ip,str):
+                                ip = ip.encode()
                             record = [longToIP(int((ip[i:i+n]).hex(),16)) for i in range(0, len(ip), n)]
                             for i in record:
                                 reply.add_answer(RR(qname, QTYPE.AAAA, rdata=AAAA(i)))
-                        else:
-                            reply.add_answer(RR(qname, QTYPE.AAAA, rdata=AAAA(ip)))
                     else:
                         reply.add_answer(RR(qname, QTYPE.A, rdata=A(ip), ttl=30))
             if resIP: 
