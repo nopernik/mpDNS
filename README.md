@@ -12,7 +12,7 @@ Simple, configurable "**clone & run**" DNS Server with multiple useful features
   - `{{resolve}}` _-> Forward DNS request to local system DNS_
   - `{{resolve::example.com}}` _-> Resolve example.com instead of original record_
   - `{{echo}}` _-> Response back with peer address_
-  - `{{shellexec::echo %PEER% %QUERY%}}` _-> Use of variables_
+  - `{{shellexec::echo %PEER% %QUERY% %QUERYTYPE%}}` _-> Use of variables_
 - See names.db.example for more
 
 Heavily based on <https://github.com/circuits/circuits/blob/master/examples/dnsserver.py>
