@@ -11,6 +11,7 @@ import base64
 import zlib
 import math
 import shlex
+from netaddr import IPAddress as IP
 
 from circuits import Component, Debugger, Event
 from circuits.net.events import write
@@ -97,7 +98,15 @@ def longToIP(ipLong):
         ipLong = ipLong >> 16
     return ':'.join(ipString[::-1])
 
-def checkMacro(q,query,peer):
+def isValidIP(s):
+    try:
+        IP(s)
+        return True
+    except:
+        return False
+
+def checkMacro(queryType,q,query,peer):
+   queryType = qTypeDict[queryType]
    query = str(query)
    if query[-1] == '.': query = query[:-1]
    
@@ -111,8 +120,7 @@ def checkMacro(q,query,peer):
    payload = ''
    if len(argList) > 1:
       payload = argList[1]
-   
-   variables = {'%PEER%':peer[0],'%QUERY%':shlex.quote(query)}
+   variables = {'%PEER%':peer[0],'%QUERY%':shlex.quote(query), '%QUERYTYPE%': queryType}
    for var in variables.keys():
       if var in payload:
          payload = payload.replace(var,variables[var])
@@ -161,6 +169,10 @@ def checkMacro(q,query,peer):
    else:
       print("Unhandled macroType, defaulting to 127.0.0.1")
       res = '127.0.0.1'
+   if queryType == 'A' and isValidIP(res):
+       return res
+   elif queryType == 'TXT' and len(res) == 0:
+       return ''
    return res
 
 def dbTest(q):
@@ -181,6 +193,7 @@ def dbTest(q):
    return res
 
 def customParse(q):
+   #FIXME #TODO
    id = int(q[:2].encode('hex'),16)
    q = bytearray(q[12:])
    l = len(q)
@@ -238,7 +251,7 @@ class Dummy(Component):
            cnameAddress = [i[1] for i in tmpData if i[0] == 'CNAME']
            tmpRes = (dHost,tmpData)
            if cnameAddress:
-              newAddr = checkMacro(cnameAddress[0],dHost,peer)
+              newAddr = checkMacro(queryType,cnameAddress[0],dHost,peer)
               reply.add_answer(RR(dHost, QTYPE.CNAME, rdata=CNAME(newAddr)))
               # Second: get desired QTYPE from desired host
               printOut(peer,QTYPE.CNAME,str(dHost),newAddr)
@@ -252,7 +265,7 @@ class Dummy(Component):
            # Add TXT Record
            printData = []
            for tmprecord in rData:
-              record = checkMacro(tmprecord,qname,peer)
+              record = checkMacro(queryType,tmprecord,qname,peer)
               n = 255
               if len(record) > 20: 
                  printData += [ record[:15]+'...(%d)' % len(record) ]
@@ -272,7 +285,7 @@ class Dummy(Component):
            elif '*' in db:
               resIP = [i[1] for i in dbTest('*') if i[0] == 'MX']
            for tmpip in resIP:
-              ip = checkMacro(tmpip,qname,peer)
+              ip = checkMacro(queryType,tmpip,qname,peer)
               reply.add_answer(RR(qname, QTYPE.MX, rdata=MX(ip)))
            printOut(peer,queryType,str(qname),printData)
            
@@ -284,7 +297,7 @@ class Dummy(Component):
            elif '*' in db: # answer to ALL (*)
               resIP = [i[1] for i in dbTest('*') if i[0] == qTypeDict[queryType]]
            for tmpip in resIP:
-              tip = checkMacro(tmpip,qname,peer)
+              tip = checkMacro(queryType,tmpip,qname,peer)
               if not isinstance(tip,list):
                  tip = [tip]
               for ip in tip:
