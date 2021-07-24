@@ -21,7 +21,7 @@ Quick Start
 -----------
 ```
 git clone https://github.com/nopernik/mpDNS
-pip install -r requirements
+pip install -r requirements.txt
 touch names.db
 ```
 Now you're ready to fill your DNS records in **names.db** based on **names.db.example**
