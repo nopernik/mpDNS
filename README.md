@@ -1,6 +1,6 @@
 mpDNS aka multi-purpose DNS Server
 --------------------
-Simple, configurable "**clone & run**" DNS Server with multiple useful features
+Simple, configurable DNS Server with multiple useful features
 - Python 3
 - names.db -> holds all custom records (see examples)
 - Simple wildcards like *.example.com
@@ -17,6 +17,13 @@ Simple, configurable "**clone & run**" DNS Server with multiple useful features
 
 Heavily based on <https://github.com/circuits/circuits/blob/master/examples/dnsserver.py>
 
+Quick Start
+-----------
+`git clone https://github.com/nopernik/mpDNS`
+`pip install -r requirements`
+`touch names.db`
+Now you're ready to fill your DNS records in **names.db** based on **names.db.example**
+
 Usage: `./mpdns.py`
  - Create **names.db**. See names.db.example
  - Edit DNS records in **names.db** with `./mpdns.py -e` no restart required
@@ -29,10 +36,6 @@ Offensive and Defensive purposes:
 4. DNS Rebinding
 5. Execute custom macro action on specific query (useful in malware-analysis lab environments)
 6. And lots more. It is highly customizable.
-
-Installing
---------------------
-`git clone https://github.com/nopernik/mpDNS`
 
 Limitations
 ------------------
