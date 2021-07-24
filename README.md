@@ -19,9 +19,11 @@ Heavily based on <https://github.com/circuits/circuits/blob/master/examples/dnss
 
 Quick Start
 -----------
-`git clone https://github.com/nopernik/mpDNS`
-`pip install -r requirements`
-`touch names.db`
+```
+git clone https://github.com/nopernik/mpDNS
+pip install -r requirements
+touch names.db
+```
 Now you're ready to fill your DNS records in **names.db** based on **names.db.example**
 
 Usage: `./mpdns.py`
