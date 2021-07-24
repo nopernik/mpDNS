@@ -21,6 +21,7 @@ Quick Start
 -----------
 ```
 git clone https://github.com/nopernik/mpDNS
+cd ./mpDNS
 pip install -r requirements.txt
 touch names.db
 ```
