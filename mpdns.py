@@ -237,11 +237,9 @@ class DNS(Component):
         try:
             self.fire(query(peer, DNSRecord.parse(data)))
         except:
-            print("HERE WE GO EXCEPTION")
             # Handle other possible exceptions and respond with SERVFAIL
             data = customParse(data)
             printOut(peer,data['qtype'],data['q'],'SERVFAIL')
-
             reply = DNSRecord(DNSHeader(id=data['id'],qr=1,aa=1,ra=1,rcode=2,qtype=data['qtype']),q=DNSQuestion(data['q'],qtype=data['qtype']))
             self.fire(write(peer, reply.pack()))
 
