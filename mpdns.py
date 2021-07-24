@@ -63,7 +63,9 @@ except:
     pass
 
 db = {}
-qTypeDict = {1:'A', 2:'NS', 5:'CNAME', 6:'SOA', 12:'PTR', 15:'MX',
+
+def qTypeDict(qtype):
+    qlist = {1:'A', 2:'NS', 5:'CNAME', 6:'SOA', 12:'PTR', 15:'MX',
             16:'TXT', 17:'RP', 18:'AFSDB', 24:'SIG', 25:'KEY', 28:'AAAA',
             29:'LOC', 33:'SRV', 35:'NAPTR', 36:'KX', 37:'CERT', 38:'A6',
             39:'DNAME', 41:'OPT', 42:'APL', 43:'DS', 44:'SSHFP',
@@ -71,6 +73,10 @@ qTypeDict = {1:'A', 2:'NS', 5:'CNAME', 6:'SOA', 12:'PTR', 15:'MX',
             50:'NSEC3', 51:'NSEC3PARAM', 52:'TLSA', 55:'HIP', 99:'SPF',
             249:'TKEY', 250:'TSIG', 251:'IXFR', 252:'AXFR', 255:'ANY',
             257:'CAA', 32768:'TA', 32769:'DLV', 65:'HTTPS'}
+    if qtype in qlist:
+        return qlist[qtype]
+    return 'TYPE{}'.format(qtype)
+
 
 def parseDBFile(hostFile=hostFile):
     with open(hostFile,'r') as f:
@@ -107,7 +113,7 @@ def isValidIP(s):
         return False
 
 def checkMacro(queryType,q,query,peer):
-    queryType = qTypeDict[queryType]
+    queryType = qTypeDict(queryType)
     query = str(query)
     if query[-1] == '.': query = query[:-1]
    
@@ -213,7 +219,7 @@ def customParse(q):
 def printOut(peer,qType,query,response):
     peerLen = len("%s:%d"%(peer[0],peer[1]))
     host = '%s:%d' % (peer[0],peer[1])
-    printData = "- Request from %s -> %s\t-> %s (%s)" % (host.ljust(20), str(query), response , qTypeDict[qType])
+    printData = "- Request from %s -> %s\t-> %s (%s)" % (host.ljust(20), str(query), response , qTypeDict(qType))
     print(printData, file=sys.stdout )
     p = open(logFile,'a')
     p.write(printData+'\n')
@@ -231,6 +237,7 @@ class DNS(Component):
         try:
             self.fire(query(peer, DNSRecord.parse(data)))
         except:
+            print("HERE WE GO EXCEPTION")
             # Handle other possible exceptions and respond with SERVFAIL
             data = customParse(data)
             printOut(peer,data['qtype'],data['q'],'SERVFAIL')
@@ -279,7 +286,7 @@ class Dummy(Component):
             printOut(peer,queryType,str(qname),printData)
 
         elif queryType == QTYPE.MX:
-            rData = [i[1] for i in rData if i[0] == qTypeDict[queryType]]
+            rData = [i[1] for i in rData if i[0] == qTypeDict(queryType)]
             resIP = ''
             printData = []
             if len(rData):
@@ -292,12 +299,12 @@ class Dummy(Component):
             printOut(peer,queryType,str(qname),printData)
             
         else:
-            rData = [i[1] for i in rData if i[0] == qTypeDict[queryType]]
+            rData = [i[1] for i in rData if i[0] == qTypeDict(queryType)]
             resIP = ''
             if len(rData):
                 resIP = rData
             elif '*' in db: # answer to ALL (*)
-                resIP = [i[1] for i in dbTest('*') if i[0] == qTypeDict[queryType]]
+                resIP = [i[1] for i in dbTest('*') if i[0] == qTypeDict(queryType)]
             for tmpip in resIP:
                 tip = checkMacro(queryType,tmpip,qname,peer)
                 if not isinstance(tip,list):
