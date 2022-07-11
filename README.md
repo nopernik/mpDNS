@@ -9,6 +9,7 @@ Simple, configurable DNS Server with multiple useful features
   - `{{shellexec::dig google.com +short}}` _-> Execute shell command and respond with result_
   - `{{eval::res = '1.1.1.%d' % random.randint(0,256)}}` _-> Evaluate your python code_
   - `{{file::/etc/passwd}}` _-> Respond with localfile contents_
+  - `{{filelist::/somefile.list}}` _-> Respond with multiple results line by line_
   - `{{resolve}}` _-> Forward DNS request to local system DNS_
   - `{{resolve::example.com}}` _-> Resolve example.com instead of original record_
   - `{{echo}}` _-> Response back with peer address_

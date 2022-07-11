@@ -161,7 +161,7 @@ def checkMacro(queryType,q,query,peer):
         #  results in ['line1','line2']
         if os.path.isfile(payload):
             with open(payload,'rb') as f:
-                res = [i.strip().split(' ')[0] for i in f.read().split('\n') if i and not i.strip().startswith('#')]
+                res = [i.strip().split(b' ')[0].decode() for i in f.read().split(b'\n') if i and not i.strip().startswith(b'#')]
         else:
             res = '127.0.0.1'
             print('File %r does not exists' % payload)
