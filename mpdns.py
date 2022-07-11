@@ -36,7 +36,7 @@ if not os.path.exists(hostFile):
     print("[-] names.db does not found.\nUse names.db.example as a template and copy it to 'names.db' file.")
     exit(1)
 
-serverIP = '0.0.0.0'
+serverIP = ''
 
 if '-h' in sys.argv[1:] or '--help' in sys.argv[1:]:
     print('Usage:\n ./{} [--host 1.2.3.4]'.format(os.path.basename(__file__)))
@@ -374,3 +374,4 @@ try:
     DNSServer((serverIP, PORT), verbose=True).run()
 except socket.error:
     print('[-] Unable to bind on serverIP\nTry overriding bind host with --host 1.2.3.4\n')
+    print(traceback.format_exc())
