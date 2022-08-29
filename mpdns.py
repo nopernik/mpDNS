@@ -275,7 +275,7 @@ class Dummy(Component):
                 record = checkMacro(queryType,tmprecord,qname,peer)
                 n = 255
                 if len(record) > 20: 
-                    printData += [ record[:15]+'...(%d)' % len(record) ]
+                    printData += [ str(record[:15]) + '...(%d)' % len(record) ]
                 else:
                     printData = [record]
                 if len(record) > n:
