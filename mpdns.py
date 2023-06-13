@@ -17,14 +17,14 @@ import traceback
 from circuits import Component, Debugger, Event
 from circuits.net.events import write
 from circuits.net.sockets import UDPServer
-
+import helpers.colors as colors
 import re
 
 from pprint import pprint
 
 __author__ = "@nopernik"
 __license__ = "GPL"
-__version__ = "1.2"
+__version__ = "1.2.1"
 
 rootPath = os.path.dirname(os.path.realpath(__file__))
 hostFile = rootPath + '/names.db'
@@ -219,7 +219,7 @@ def customParse(q):
 def printOut(peer,qType,query,response):
     peerLen = len("%s:%d"%(peer[0],peer[1]))
     host = '%s:%d' % (peer[0],peer[1])
-    printData = "- Request from %s -> %s\t-> %s (%s)" % (host.ljust(20), str(query), response , qTypeDict(qType))
+    printData = "[Request] %s -> %s\t-> %s (%s)" % (colors.gray(host.ljust(22)), colors.green(str(query)), colors.cyan(response) , colors.orange(qTypeDict(qType)))
     print(printData, file=sys.stdout )
     p = open(logFile,'a')
     p.write(printData+'\n')
@@ -365,7 +365,7 @@ for key,val in db.items():
             p = v[1]
         print('%s%s%r' % (key.ljust(25),v[0].ljust(8),p))
 for k in db:
-    print('\n\033[92m[+] {}:\033[0m'.format(k))
+    print(colors.green('[+] {}:'.format(k)))
     for v in db[k]:
         print('{} -> {}'.format(v[0].rjust(8).ljust(8),v[1]))
 
