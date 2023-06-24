@@ -216,10 +216,13 @@ def customParse(q):
     qType = ( q[1] << 8 ) + q[2]
     return {'id':qid,'q':res,'qtype':qType}
    
-def printOut(peer,qType,query,response):
+def printOut(peer,qType,query,response = None):
     peerLen = len("%s:%d"%(peer[0],peer[1]))
     host = '%s:%d' % (peer[0],peer[1])
-    printData = "[Request] %s -> %s\t-> %s (%s)" % (colors.gray(host.ljust(22)), colors.green(str(query)), colors.cyan(response) , colors.orange(qTypeDict(qType)))
+    if response is None:
+        printData = ("{host: <30} {qtype: <6} {query}\t{response}".format(host=colors.gray(host), query = colors.darkorange(str(query)), qtype = colors.orangebold(qTypeDict(qType).ljust(6)), response = colors.darkgray(response)))
+    else:
+        printData = "{host: <30} {qtype: <6} {query}\t{response}".format(host=colors.gray(host), query = colors.green(str(query)), qtype = colors.orangebold(qTypeDict(qType).ljust(6)), response = colors.cyan(response))
     print(printData, file=sys.stdout )
     p = open(logFile,'a')
     p.write(printData+'\n')
@@ -329,9 +332,9 @@ class Dummy(Component):
                     else:
                         reply.add_answer(RR(qname, QTYPE.A, rdata=A(ip), ttl=30))
             if resIP: 
-                printOut(peer,queryType,str(qname),', '.join(resIP))
+                printOut(peer,queryType,str(qname),response = ', '.join(resIP))
             else:
-                printOut(peer,queryType,str(qname),'NONE')
+                printOut(peer,queryType,str(qname), response = None)
 
         # Send To Client
         self.fire(write(peer, reply.pack()))
