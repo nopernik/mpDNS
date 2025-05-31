@@ -207,7 +207,7 @@ def customParse(q):
     qType = 0
     res = b''
     while 1:
-        if not len(q):
+        if len(q) < 2:
             break
         i = q[0]
         if not i:
