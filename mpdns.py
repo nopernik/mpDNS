@@ -314,15 +314,14 @@ class Dummy(Component):
             if len(rData):
                 resIP = rData
             elif '*' in db:
-                resIP = [i[1] for i in dbTest('*') if i[0] == 'MX']
+                resIP = [i[1] for i in dbTest('*') if i[0] == 'SRV']
             for tmpip in resIP:
-                # priority, weight, port, name = re.findall('[^\s]+', tmpip)
-                value = json.loads(tmpip)
-                # priority = int(priority)
-                # weight = int(weight)
-                # port = int(port)
+                try:
+                    value = json.loads(tmpip)
+                except:
+                    print(colors.redbold(f'[!] Invalid JSON value: {tmpip}'))
+                    continue
                 name = checkMacro(queryType, value['target'], qname, peer)
-                # priority,weight,port = buffer.unpack("!HHH")
                 srv_data = SRV(value['priority'], value['weight'], value['port'], name)
                 reply.add_answer(RR(qname, QTYPE.SRV, rdata=srv_data))
                 destType = 'A'
