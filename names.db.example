@@ -77,6 +77,6 @@ resolve1		    A       {{resolve}}
 resolve2		    A       {{resolve::self}}      # same as above
 resolve3	    	A       {{resolve::example.com}}
 blah.com       		A       5.5.5.5
-
+srv.record          SRV     {"priority": 0, "weight": 100, "port": 88, "target": "dc01.haxyco.local", "type": "A"}
 
 # Have fun!

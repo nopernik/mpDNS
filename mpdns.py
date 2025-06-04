@@ -6,7 +6,7 @@ import sys, os
 import socket
 from socket import gethostbyname_ex
 import random
-from dnslib import QTYPE, RR, A, AAAA, NS, TXT, DNSHeader, DNSRecord, DNSQuestion, CNAME, MX, RRSIG
+from dnslib import QTYPE, RR, A, AAAA, NS, TXT, DNSHeader, DNSRecord, DNSQuestion, CNAME, MX, RRSIG, SRV
 import base64
 import zlib
 import math
@@ -19,12 +19,13 @@ from circuits.net.events import write
 from circuits.net.sockets import UDPServer
 import helpers.colors as colors
 import re
+import json
 
 from pprint import pprint
 
 __author__ = "@nopernik"
 __license__ = "GPL"
-__version__ = "1.2.1"
+__version__ = "1.2.2"
 
 rootPath = os.path.dirname(os.path.realpath(__file__))
 hostFile = rootPath + '/names.db'
@@ -45,8 +46,11 @@ if '-h' in sys.argv[1:] or '--help' in sys.argv[1:]:
 if '--host' in sys.argv[1:]:
     serverIP = sys.argv[sys.argv.index('--host')+1]
 
-logFile = '/tmp/dns-server.log'
 PORT = 53
+if '--port' in sys.argv[1:]:
+    PORT = int(sys.argv[sys.argv.index('--port')+1])
+
+logFile = '/tmp/dns-server.log'
 
 with open('/tmp/dns-server.pid','wb') as pidfile:
     pidfile.write(str(os.getpid()).encode())
@@ -297,10 +301,45 @@ class Dummy(Component):
             elif '*' in db:
                 resIP = [i[1] for i in dbTest('*') if i[0] == 'MX']
             for tmpip in resIP:
-                ip = checkMacro(queryType,tmpip,qname,peer)
-                reply.add_answer(RR(qname, QTYPE.MX, rdata=MX(ip)))
-            printOut(peer,queryType,str(qname),printData)
+                target = checkMacro(queryType,tmpip,qname,peer)
+                printData += [target]
+                reply.add_answer(RR(qname, QTYPE.MX, rdata=MX(target)))
+            printOut(peer,queryType,str(qname), ', '.join(printData))
+
+
+        elif queryType == QTYPE.SRV:
+            rData = [i[1] for i in rData if i[0] == qTypeDict(queryType)]
+            resIP = ''
+            printData = []
+            if len(rData):
+                resIP = rData
+            elif '*' in db:
+                resIP = [i[1] for i in dbTest('*') if i[0] == 'MX']
+            for tmpip in resIP:
+                # priority, weight, port, name = re.findall('[^\s]+', tmpip)
+                value = json.loads(tmpip)
+                # priority = int(priority)
+                # weight = int(weight)
+                # port = int(port)
+                name = checkMacro(queryType, value['target'], qname, peer)
+                # priority,weight,port = buffer.unpack("!HHH")
+                srv_data = SRV(value['priority'], value['weight'], value['port'], name)
+                reply.add_answer(RR(qname, QTYPE.SRV, rdata=srv_data))
+                destType = 'A'
+                if "type" in value and value['type'].upper() in ['A','AAAA']:
+                    destType = value['type'].upper()
+                destAddresses = [i[1] for i in dbTest(name) if i[0] == destType]
+                if destType == 'A':
+                    resType = A
+                elif destType == 'AAAA':
+                    resType = AAAA
+                if len(destAddresses):
+                    for destAddress in destAddresses:
+                        reply.add_ar(RR(name, getattr(QTYPE, destType), rdata=resType(checkMacro(destType, destAddress, qname, peer)), ttl=30))
+                printData = f'Priority: {value["priority"]} | Weight: {value["weight"]} | Port: {value["port"]} | {name} -> {", ".join(destAddresses)}'
             
+                printOut(peer,queryType,str(qname),printData)
+
         else:
             rData = [i[1] for i in rData if i[0] == qTypeDict(queryType)]
             resIP = ''
@@ -378,5 +417,5 @@ for k in db:
 try:
     DNSServer((serverIP, PORT), verbose=True).run()
 except socket.error:
-    print('[-] Unable to bind on serverIP\nTry overriding bind host with --host 1.2.3.4\n')
+    print('[-] Unable to bind on serverIP\nTry overriding bind host with [--host 1.2.3.4] [--port 53]\n')
     print(traceback.format_exc())
